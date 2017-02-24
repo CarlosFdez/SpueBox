@@ -1,0 +1,12 @@
+# Credentials for the regular bot and music player bot
+client_id = 'client id goes here'
+credentials = ('token_goes_here')
+
+# Override to control special bot commands
+owner_id = None
+
+default_volume = 30
+connection_timeout = 7200 # 2 hours
+
+# A list of games to randomly pick
+games = ["reporting to botnet", "sending spam emails", "packaging spyware", "notifying Microsoft", "modifying hosts file"]
