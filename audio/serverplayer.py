@@ -18,15 +18,17 @@ class AdjustableStream:
         if self.client.volume >= 100:
             return stream
 
-        stream = array.array('h', stream)
-        self._transform_volume(stream)
-        return stream.tobytes()
+        return self._transform_volume(stream)
 
     def _transform_volume(self, stream):
+        stream = array.array('h', stream)
         volume_scaling = self.client.volume / 100
+
         setitem = stream.__setitem__
         for i, value in enumerate(stream):
             stream.__setitem__(i, int(value * volume_scaling))
+
+        return stream.tobytes()
 
 class ServerPlayer:
     '''An enhancement over discord's VoiceClient that provides additional functionality
@@ -128,16 +130,26 @@ class ServerPlayer:
                     self.player = None
                 loop.call_soon_threadsafe(clear)
 
-            self.player = self.voice.create_ffmpeg_player(song.source, after=after)
+            self.player = self.voice.create_ffmpeg_player(
+                song.source,
+                before_options="-nostdin",
+                options="-vn -b:a 128k",
+                after=after)
             self.player.buff = AdjustableStream(self.player.buff, self)
+
+            # wait for there to be data to play
             await self.player.buff.wait_for_data(self.player.frame_size)
+
             self.player.start()
+
+            # wait until the player is done (triggered by 'after')
             await stop_event.wait()
 
         # Start the disconnect from voice channel timeout
         self.player_timeout = asyncio.ensure_future(self._wait_timeout())
 
     async def _wait_timeout(self):
+        '''This is a coroutine. Starts the timeout for the player to disconnect.'''
         await asyncio.sleep(self.timeout)
         await self.disconnect()
         print('disconnected due to timeout')

@@ -22,12 +22,13 @@ class Loader:
         The results are (title, source) pairs
         '''
 
-        audio_format = 'best'
         ydl = youtube_dl.YoutubeDL({
-            'format': audio_format,
+            'format': 'bestaudio/best',
             'noplaylist': noplaylist,
             'ignoreerrors': True,
-            'nocheckcertificate': True
+            'nocheckcertificate': True,
+            'logtostderr': False,
+            'quiet': True
         })
 
         loop = asyncio.get_event_loop()
