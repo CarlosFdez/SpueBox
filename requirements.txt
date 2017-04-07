@@ -1,2 +1,2 @@
-discord.py[voice] == 0.16.1
+discord.py[voice] == 0.16.7
 youtube_dl >= 2017.2.24.1
