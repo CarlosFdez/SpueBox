@@ -1,34 +1,8 @@
 import asyncio
 import discord
-import array
 import traceback
 from .songlist import SongList
-
-class AdjustableStream:
-    def __init__(self, base, client):
-        self.base = base
-        self.client = client
-
-    async def wait_for_data(self, buffersize):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.base.peek, buffersize)
-
-    def read(self, n=None):
-        stream = self.base.read(n)
-        if self.client.volume >= 100:
-            return stream
-
-        return self._transform_volume(stream)
-
-    def _transform_volume(self, stream):
-        stream = array.array('h', stream)
-        volume_scaling = self.client.volume / 100
-
-        setitem = stream.__setitem__
-        for i, value in enumerate(stream):
-            stream.__setitem__(i, int(value * volume_scaling))
-
-        return stream.tobytes()
+from .audiostream import AudioStream
 
 class ServerPlayer:
     '''An enhancement over discord's VoiceClient that provides additional functionality
@@ -39,7 +13,6 @@ class ServerPlayer:
     def __init__(self, bot, server, *, volume = 100, timeout=600):
         self.bot = bot
         self.server = server
-        self.volume = volume
         self.timeout = timeout
         self.songs = SongList()
 
@@ -49,6 +22,21 @@ class ServerPlayer:
 
         self.connect_lock = asyncio.Lock()
         self.player_timeout = None
+
+        self.volume = volume
+
+    @property
+    def volume(self):
+        '''Returns the server's set volume level'''
+        return self._volume
+
+    @volume.setter
+    def volume(self, new_value):
+        new_value = max(0, min(100, new_value))
+        '''Sets the server's default volume level, and any currently playing music'''
+        self._volume = new_value
+        if self.player and self.player.buff:
+            self.player.buff.volume = new_value
 
     @property
     def is_playing(self):
@@ -135,7 +123,7 @@ class ServerPlayer:
                 before_options="-nostdin",
                 options="-vn -b:a 128k",
                 after=after)
-            self.player.buff = AdjustableStream(self.player.buff, self)
+            self.player.buff = AudioStream(self.player.buff, self.volume)
 
             # wait for there to be data to play
             await self.player.buff.wait_for_data(self.player.frame_size)

@@ -47,7 +47,9 @@ class MusicPlayerPlugin:
     @commands.command(name='volume', pass_context=True,
         help="Adjusts bot volume for the server. Can only be used by server admins")
     async def volume_cmd(self, ctx, volume : int):
-        self.player_for(ctx).volume = int(volume)
+        player = self.player_for(ctx)
+        player.volume = int(volume)
+        await self.bot.say("Updated server's volume to " + str(player.volume) + "%")
 
     @commands.command(name='play', pass_context=True,
         help="Plays a song, can be a url or a tag name.\n" +
