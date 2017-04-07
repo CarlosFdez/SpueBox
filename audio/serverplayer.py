@@ -2,7 +2,6 @@ import asyncio
 import discord
 import traceback
 from .songlist import SongList
-from .audiostream import AudioStream
 
 class ServerPlayer:
     '''An enhancement over discord's VoiceClient that provides additional functionality
@@ -31,12 +30,12 @@ class ServerPlayer:
         return self._volume
 
     @volume.setter
-    def volume(self, new_value):
-        new_value = max(0, min(100, new_value))
+    def volume(self, value):
+        new_value = max(0, min(150, value))
         '''Sets the server's default volume level, and any currently playing music'''
-        self._volume = new_value
-        if self.player and self.player.buff:
-            self.player.buff.volume = new_value
+        self._volume = value
+        if self.player:
+            self.player.volume = value / 100
 
     @property
     def is_playing(self):
@@ -123,11 +122,7 @@ class ServerPlayer:
                 before_options="-nostdin",
                 options="-vn -b:a 128k",
                 after=after)
-            self.player.buff = AudioStream(self.player.buff, self.volume)
-
-            # wait for there to be data to play
-            await self.player.buff.wait_for_data(self.player.frame_size)
-
+            self.player.volume = self.volume / 100
             self.player.start()
 
             # wait until the player is done (triggered by 'after')
