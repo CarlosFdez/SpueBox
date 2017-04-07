@@ -40,7 +40,6 @@ if __name__ == '__main__':
     bot.on_command_error = command_error
     bot.add_cog(plugins.AdministrativePlugin(bot))
     bot.add_cog(plugins.MusicPlayerPlugin(bot, tagdb))
-    bot.add_cog(plugins.ChoicePlugin(bot))
     bot.add_cog(plugins.TagPlugin(bot, tagdb))
     bot.add_cog(plugins.RandomGamePlugin(bot, config.games))
 
