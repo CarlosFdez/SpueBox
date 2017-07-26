@@ -22,8 +22,8 @@ class AdministrativePlugin:
         await self.bot.say(link)
 
     @commands.check(checks.is_owner)
-    @commands.command(name='say')
-    async def say_cmd(self, *, content: str):
+    @commands.command(name='say', pass_context=True)
+    async def say_cmd(self, ctx, *, content: str):
         if await self.check_not_direct(ctx): return
 
         await self.bot.say(content.strip())
