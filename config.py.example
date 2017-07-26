@@ -10,3 +10,7 @@ connection_timeout = 7200 # 2 hours
 
 # A list of games to randomly pick
 games = ["reporting to botnet", "sending spam emails", "packaging spyware", "notifying Microsoft", "modifying hosts file"]
+
+# The level to log at. Use a value from https://docs.python.org/3/library/logging.html#levels
+import logging
+loglevel = logging.INFO

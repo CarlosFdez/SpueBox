@@ -11,6 +11,9 @@ import core
 
 from discord.ext import commands
 
+import logging
+from logging.handlers import TimedRotatingFileHandler
+
 # Global handler for bot command errors
 async def command_error(exc, ctx):
     exc_type = type(exc)
@@ -28,6 +31,13 @@ async def command_error(exc, ctx):
     traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
 
 if __name__ == '__main__':
+    # Set up logging (and ensure directory)
+    os.makedirs('logs', exist_ok=True)
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)s:%(name)s %(message)s',
+        level=config.loglevel,
+        handlers=[TimedRotatingFileHandler("logs/log.txt", when='midnight')])
+
     # Ensure database folder exists
     os.makedirs('database', exist_ok=True)
 
@@ -43,4 +53,8 @@ if __name__ == '__main__':
     bot.add_cog(plugins.TagPlugin(bot, tagdb))
     bot.add_cog(plugins.RandomGamePlugin(bot, config.games))
 
+    logging.info("Bot plugins initialized")
+
     bot.run(config.credentials)
+
+    logging.info("Bot shut down")
