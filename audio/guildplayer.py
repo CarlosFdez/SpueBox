@@ -10,16 +10,16 @@ class GuildPlayer:
     but does not require a connection to exist.
     '''
 
-    def __init__(self, guild, *, volume = 100, disconnect_timeout=600):
+    def __init__(self, guild, *, volume = 100, inactivity_timeout=600):
         self.guild = guild # todo: use to validate connections?
         self.songs = SongList()
-        self.disconnect_timeout_length = disconnect_timeout
+        self.inactivity_timeout_length = inactivity_timeout
 
         self.voice_client = None
 
         self.play_lock = asyncio.Lock()
         self.connect_lock = asyncio.Lock()
-        self.disconnect_timeout = None
+        self.inactivity_timeout = None
 
         self.volume = volume
 
@@ -41,14 +41,9 @@ class GuildPlayer:
         return self.voice_client and self.voice_client.is_connected()
 
     @property
-    def is_channel_empty(self):
-        'Returns if the channel is empty not including the player'
-        if not self.is_connected:
-            return False
-
-        channel = self.voice_client.channel
-        non_bot_members = filter(lambda v: not v.bot, channel.voice_members)
-        return non_bot_members.next() is not None
+    def channel(self):
+        if self.voice_client:
+            return self.voice_client.channel
 
     async def connect(self, voice_channel : discord.VoiceChannel):
         '''This is a coroutine. Connect to the voice channel,
@@ -107,8 +102,8 @@ class GuildPlayer:
         '''
 
         # If there is a player_timeout, cancel. If its already cancelled it has no effect
-        if self.disconnect_timeout:
-            self.disconnect_timeout.cancel()
+        if self.inactivity_timeout:
+            self.inactivity_timeout.cancel()
 
         # Make sure the client doesn't disconnect in the middle of this by locking
         with await self.connect_lock:
@@ -132,11 +127,12 @@ class GuildPlayer:
             await stop_event.wait()
 
         # Start the disconnect from voice channel timeout
-        self.disconnect_timeout = asyncio.ensure_future(self._wait_timeout())
+        timeout_coro = self._wait_timeout(self.inactivity_timeout_length)
+        self.inactivity_timeout = asyncio.ensure_future(timeout_coro)
 
-    async def _wait_timeout(self):
+    async def _wait_timeout(self, length):
         '''This is a coroutine. Starts the timeout for the player to disconnect.'''
-        await asyncio.sleep(self.disconnect_timeout_length)
+        await asyncio.sleep(length)
         await self.disconnect()
         print('disconnected due to timeout')
 

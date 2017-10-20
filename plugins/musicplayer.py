@@ -25,23 +25,39 @@ class MusicPlayerPlugin:
 
         return False # we're clear
 
-    def player_for(self, ctx):
+    # Disconnect the bot if there's no one to listen
+    async def on_voice_state_update(self, member, before, after):
+        # if there was no channel change, we don't care
+        if before.channel is after.channel:
+            return
+
+        player = self.player_for(member.guild)
+        if not player.channel or before.channel != player.channel:
+            # The player is uninvolved, so we don't care
+            return
+
+        # Disconnect if the player's channel is empty of normal users
+        channel = player.channel
+        non_bot_members = filter(lambda v: not v.bot, channel.members)
+        if not next(non_bot_members, None):
+            await player.disconnect()
+
+    def player_for(self, guild):
         'Retrieves or creates a GuildMusicPlayer based on the given context'
-        guild = ctx.guild
         try:
             return self.players[guild.id]
         except KeyError:
             player = audio.GuildPlayer(
                 guild,
                 volume=config.default_volume,
-                disconnect_timeout=config.connection_timeout)
+                inactivity_timeout=config.connection_timeout)
             self.players[guild.id] = player
             return player
 
     @commands.check(checks.is_owner_or_admin)
     async def volume_cmd(self, ctx, volume : int):
         "Adjusts bot volume for the guild. Can only be used by guild admins"
-        player = self.player_for(ctx)
+        player = self.player_for(ctx.guild)
         player.volume = int(volume)
         await ctx.send("Updated guild's volume to " + str(player.volume) + "%")
 
@@ -59,7 +75,7 @@ class MusicPlayerPlugin:
             print("Playing {}".format(url))
 
             song = await self.loader.load_song(url, ctx.author, ctx.channel)
-            player = self.player_for(ctx)
+            player = self.player_for(ctx.guild)
             await player.connect(ctx.author.voice.channel)
             await player.play(song, loop=loop)
         except youtube_dl.utils.DownloadError as ex:
@@ -82,7 +98,7 @@ class MusicPlayerPlugin:
             # TODO: LOG
 
             songs = await self.loader.load_playlist(url, ctx.author, ctx.channel)
-            player = self.player_for(ctx)
+            player = self.player_for(ctx.guild)
             await player.connect(ctx.author.voice.channel)
             await player.play(*songs, loop=loop, shuffle=shuffle)
         except youtube_dl.utils.DownloadError as ex:
@@ -93,16 +109,16 @@ class MusicPlayerPlugin:
     async def shuffle_cmd(self, ctx):
         "Shuffles the current queue"
         if await self.cannot_use_voice(ctx): return
-        self.player_for(ctx).shuffle()
+        self.player_for(ctx.guild).shuffle()
 
     @commands.command(name='skip')
     async def skip_cmd(self, ctx):
         "Skips to the next song in the queue"
         if await self.cannot_use_voice(ctx): return
-        self.player_for(ctx).skip()
+        self.player_for(ctx.guild).skip()
 
     @commands.command(name='stop')
     async def stop_cmd(self, ctx):
         "Stops all songs in the queue and flushes it"
         if await self.cannot_use_voice(ctx): return
-        self.player_for(ctx).stop()
+        self.player_for(ctx.guild).stop()
