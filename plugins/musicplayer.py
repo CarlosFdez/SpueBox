@@ -8,12 +8,6 @@ import audio
 
 from core import checks
 
-def get_voice_channels(server):
-    'Returns the voice channels for the server sorted by position'
-    channels = filter(lambda c: c.type == discord.ChannelType.voice, server.channels)
-    channels = sorted(channels, key=lambda c: c.position)
-    return channels
-
 class MusicPlayerPlugin:
     def __init__(self, bot, tagdb):
         self.bot = bot
@@ -21,37 +15,38 @@ class MusicPlayerPlugin:
         self.players = {}
         self.tagdb = tagdb
 
+    # This isn't a check as checks pretend the command doesn't exist.
     async def cannot_use_voice(self, ctx):
-        author = ctx.message.author # requester
-        if not author.voice_channel:
-            await self.bot.say('you need to be in a voice channel')
+        "Checks if the context allows the use of voice"
+        author = ctx.author # requester
+        if not author.voice:
+            await ctx.send('you need to be in a voice channel')
             return True
 
         return False # we're clear
 
     def player_for(self, ctx):
-        'Retrieves or creates a ServerMusicPlayer based on the given context'
-        server = ctx.message.server
+        'Retrieves or creates a GuildMusicPlayer based on the given context'
+        guild = ctx.message.guild
         try:
-            return self.players[server.id]
+            return self.players[guild.id]
         except KeyError:
-            player = audio.ServerPlayer(
+            player = audio.GuildPlayer(
                 self.bot,
-                server,
+                guild,
                 volume=config.default_volume,
-                timeout=config.connection_timeout)
-            self.players[server.id] = player
+                disconnect_timeout=config.connection_timeout)
+            self.players[guild.id] = player
             return player
 
     @commands.check(checks.is_owner_or_admin)
-    @commands.command(name='volume', pass_context=True,
-        help="Adjusts bot volume for the server. Can only be used by server admins")
     async def volume_cmd(self, ctx, volume : int):
+        "Adjusts bot volume for the guild. Can only be used by guild admins"
         player = self.player_for(ctx)
         player.volume = int(volume)
-        await self.bot.say("Updated server's volume to " + str(player.volume) + "%")
+        await ctx.send("Updated guild's volume to " + str(player.volume) + "%")
 
-    @commands.command(name='play', pass_context=True,
+    @commands.command(name='play',
         help="Plays a song, can be a url or a tag name.\n" +
              "Can have loop as an optional argument.")
     async def play_cmd(self, ctx, url, *args):
@@ -61,18 +56,19 @@ class MusicPlayerPlugin:
         loop = 'loop' in args
 
         try:
-            url = self.tagdb.try_get(ctx.message.author.id, url, default=url)
+            # Try to load a tag, if it fails url doesn't change
+            url = self.tagdb.try_get(ctx.author.id, url, default=url)
             print("Playing {}".format(url))
 
-            song = await self.loader.load_song(url, ctx.message.author, ctx.message.channel)
+            song = await self.loader.load_song(url, ctx.author, ctx.channel)
             player = self.player_for(ctx)
-            await player.connect(ctx.message.author.voice_channel)
+            await player.connect(ctx.author.voice.channel)
             await player.play(song, loop=loop)
         except youtube_dl.utils.DownloadError as ex:
-            msg_text = 'Failed to download video: ' + str(ex)
-            await self.bot.send_message(ctx.message.channel, msg_text) # there is an unknown bug with say() in catch
+            # TODO: LOG
+            await ctx.send('Failed to download video: ' + str(ex))
 
-    @commands.command(name='playlist', pass_context=True,
+    @commands.command(name='playlist',
         help="Adds a youtube playlist on a queue. Can be a url or a tag name.\n" +
              "Can have loop and shuffle as optional arguments.")
     async def playlist_cmd(self, ctx, url, *args):
@@ -83,31 +79,33 @@ class MusicPlayerPlugin:
         shuffle = 'shuffle' in args
 
         try:
-            url = self.tagdb.try_get(ctx.message.author.id, url, default=url)
+            # Try to load a tag, if it fails url doesn't change
+            url = self.tagdb.try_get(ctx.author.id, url, default=url)
             print("Playlist at {}".format(url))
+            # TODO: LOG
 
-            songs = await self.loader.load_playlist(url, ctx.message.author, ctx.message.channel)
+            songs = await self.loader.load_playlist(url, ctx.author, ctx.channel)
             player = self.player_for(ctx)
-            await player.connect(ctx.message.author.voice_channel)
+            await player.connect(ctx.author.voice.channel)
             await player.play(*songs, loop=loop, shuffle=shuffle)
         except youtube_dl.utils.DownloadError as ex:
-            msg_text = 'Failed to download video playlist: ' + str(ex)
-            await self.bot.send_message(ctx.message.channel, msg_text) # there is an unknown bug with say() in catch
+            # TODO: LOG
+            ctx.send('Failed to download video playlist: ' + str(ex))
 
-    @commands.command(name='shuffle', pass_context=True,
-        help="Shuffles the current queue")
+    @commands.command(name='shuffle')
     async def shuffle_cmd(self, ctx):
+        "Shuffles the current queue"
         if await self.cannot_use_voice(ctx): return
         self.player_for(ctx).shuffle()
 
-    @commands.command(name='skip', pass_context=True,
-        help="Skips to the next song in the queue")
+    @commands.command(name='skip')
     async def skip_cmd(self, ctx):
+        "Skips to the next song in the queue"
         if await self.cannot_use_voice(ctx): return
         self.player_for(ctx).skip()
 
-    @commands.command(name='stop', pass_context=True,
-        help="Stops all songs in the queue and flushes it")
+    @commands.command(name='stop')
     async def stop_cmd(self, ctx):
+        "Stops all songs in the queue and flushes it"
         if await self.cannot_use_voice(ctx): return
         self.player_for(ctx).stop()

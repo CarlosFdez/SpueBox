@@ -1,7 +1,7 @@
 import discord
 
 class Song:
-    def __init__(self, title, source, request_user, request_channel):
+    def __init__(self, title : str, source, request_user, request_channel : discord.TextChannel):
         '''Represents a song data object'''
         self.title = title
         self.source = source

@@ -3,22 +3,23 @@ import discord
 import traceback
 from .songlist import SongList
 
-class ServerPlayer:
-    '''An enhancement over discord's VoiceClient that provides additional functionality
+class GuildPlayer:
+    '''A class used to play audio for a guild.
 
-    This class will eventually be changed to allow mixing audio data
+    This class wraps over discord's VoiceClient, 
+    but does not require a connection to exist.
     '''
 
-    def __init__(self, bot, server, *, volume = 100, timeout=600):
+    def __init__(self, bot, guild, *, volume = 100, disconnect_timeout=600):
         self.bot = bot
-        self.server = server
-        self.timeout = timeout
+        self.guild = guild
+        self.timeout = disconnect_timeout
         self.songs = SongList()
 
-        self.player = None # todo: rename
+        self.voice_client = None
         self.channel = None
-        self.play_lock = asyncio.Lock()
 
+        self.play_lock = asyncio.Lock()
         self.connect_lock = asyncio.Lock()
         self.player_timeout = None
 
@@ -26,16 +27,16 @@ class ServerPlayer:
 
     @property
     def volume(self):
-        '''Returns the server's set volume level'''
+        '''Returns the guild's set volume level'''
         return self._volume
 
     @volume.setter
     def volume(self, value):
+        '''Sets the guild's default volume level, and any currently playing music'''
         new_value = max(0, min(150, value))
-        '''Sets the server's default volume level, and any currently playing music'''
         self._volume = value
-        if self.player:
-            self.player.volume = value / 100
+        if self.voice_client:
+            self.voice_client.source.volume = value / 100
 
     @property
     def is_playing(self):
@@ -43,7 +44,7 @@ class ServerPlayer:
 
     @property
     def is_connected(self):
-        return self.bot.is_voice_connected(self.server)
+        return self.voice_client and self.voice_client.is_connected()
 
     @property
     def is_channel_empty(self):
@@ -54,30 +55,39 @@ class ServerPlayer:
         non_bot_members = filter(lambda v: not v.bot, self.channel.voice_members)
         return non_bot_members.next() is not None
 
-    async def connect(self, voice_channel):
+    async def connect(self, voice_channel : discord.VoiceChannel):
         '''This is a coroutine. Connect to the voice channel,
-        disconnecting the current connection if there is one if not already connected to it.
+        or move to it if already connected to another one.
         '''
-        if self.is_connected and self.voice.channel is voice_channel:
+        self.stop()
+
+        # If we are already connected to the voice channel, skip
+        if self.is_connected and self.voice_client.channel is voice_channel:
             return
 
+        # If we are already connected to a channel here, move to the other channel
         if self.is_connected:
-            await self.disconnect()
+            await self.voice_client.move_to(voice_channel)
+            self.channel = voice_channel
+            print("debug: moved channels")
+            return
 
-        # do the connection lock here as doing it above could lead to deadlock
+        # note: we lock here as doing it above could lead to deadlock (disconnect uses the lock)
         with await self.connect_lock:
             try:
-                self.voice = await self.bot.join_voice_channel(voice_channel)
+                self.voice_client = await voice_channel.connect()
                 self.channel = voice_channel
                 print("debug: connected")
-            except:
-                print('failed to connect to voice (should probably do something else here)')
+            except Exception as ex:
+                print('failed to connect to voice: ' + str(ex))
 
     async def disconnect(self):
         with await self.connect_lock:
             self.stop()
-            await self.voice.disconnect()
+            if self.voice_client:
+                await self.voice_client.disconnect()
             self.channel = None
+            self.voice_client = None
 
     async def play(self, *songs, loop=False, shuffle=False):
         '''This is a coroutine. Tells the audio client to play items that arrive in the playlist'''
@@ -96,7 +106,7 @@ class ServerPlayer:
                     # todo: move to caller
                     traceback.print_exc()
                     msg_text = "I couldn't play {}".format(song.title)
-                    await self.bot.send_message(song.request_channel, msg_text)
+                    await song.request_channel.send(msg_text)
 
     async def _play_song(self, song, after=None):
         '''This is a coroutine. Plays the contents of the song over audio.
@@ -111,19 +121,18 @@ class ServerPlayer:
         with await self.connect_lock:
             stop_event = asyncio.Event()
             loop = asyncio.get_event_loop()
-            def after():
+            def after(error):
+                print(error)
+                # todo: log
                 def clear():
                     stop_event.set()
-                    self.player = None
                 loop.call_soon_threadsafe(clear)
 
-            self.player = self.voice.create_ffmpeg_player(
-                song.source,
-                before_options="-nostdin",
-                options="-vn -b:a 128k",
-                after=after)
-            self.player.volume = self.volume / 100
-            self.player.start()
+            source = discord.FFmpegPCMAudio(song.source)
+            source = discord.PCMVolumeTransformer(source)
+            source.volume = self.volume / 100
+
+            self.voice_client.play(source, after=after)
 
             # wait until the player is done (triggered by 'after')
             await stop_event.wait()
@@ -138,8 +147,8 @@ class ServerPlayer:
         print('disconnected due to timeout')
 
     def skip(self):
-        if self.player:
-            self.player.stop()
+        if self.voice_client:
+            self.voice_client.stop()
 
     def stop(self):
         self.songs.clear()

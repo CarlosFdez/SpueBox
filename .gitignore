@@ -1,3 +1,9 @@
+# In here in case I wanna develop with the latest version
+discord.py/
+discord/
+
+.vscode/
+
 *.pyc
 __pycache__
 venv
