@@ -4,24 +4,22 @@ import traceback
 from .songlist import SongList
 
 class GuildPlayer:
-    '''A class used to play audio for a guild.
+    '''A class used to play audio for a guild and manage state.
 
     This class wraps over discord's VoiceClient, 
     but does not require a connection to exist.
     '''
 
-    def __init__(self, bot, guild, *, volume = 100, disconnect_timeout=600):
-        self.bot = bot
-        self.guild = guild
-        self.timeout = disconnect_timeout
+    def __init__(self, guild, *, volume = 100, disconnect_timeout=600):
+        self.guild = guild # todo: use to validate connections?
         self.songs = SongList()
+        self.disconnect_timeout_length = disconnect_timeout
 
         self.voice_client = None
-        self.channel = None
 
         self.play_lock = asyncio.Lock()
         self.connect_lock = asyncio.Lock()
-        self.player_timeout = None
+        self.disconnect_timeout = None
 
         self.volume = volume
 
@@ -39,20 +37,17 @@ class GuildPlayer:
             self.voice_client.source.volume = value / 100
 
     @property
-    def is_playing(self):
-        return self.play_lock.locked()
-
-    @property
     def is_connected(self):
         return self.voice_client and self.voice_client.is_connected()
 
     @property
     def is_channel_empty(self):
         'Returns if the channel is empty not including the player'
-        if not self.channel:
+        if not self.is_connected:
             return False
 
-        non_bot_members = filter(lambda v: not v.bot, self.channel.voice_members)
+        channel = self.voice_client.channel
+        non_bot_members = filter(lambda v: not v.bot, channel.voice_members)
         return non_bot_members.next() is not None
 
     async def connect(self, voice_channel : discord.VoiceChannel):
@@ -68,7 +63,6 @@ class GuildPlayer:
         # If we are already connected to a channel here, move to the other channel
         if self.is_connected:
             await self.voice_client.move_to(voice_channel)
-            self.channel = voice_channel
             print("debug: moved channels")
             return
 
@@ -76,23 +70,22 @@ class GuildPlayer:
         with await self.connect_lock:
             try:
                 self.voice_client = await voice_channel.connect()
-                self.channel = voice_channel
                 print("debug: connected")
             except Exception as ex:
                 print('failed to connect to voice: ' + str(ex))
 
     async def disconnect(self):
+        self.stop()
         with await self.connect_lock:
-            self.stop()
             if self.voice_client:
                 await self.voice_client.disconnect()
-            self.channel = None
             self.voice_client = None
 
     async def play(self, *songs, loop=False, shuffle=False):
         '''This is a coroutine. Tells the audio client to play items that arrive in the playlist'''
         self.stop()
 
+        # Don't start manipulating songs while the previous one is still playing
         with await self.play_lock:
             self.songs.reset(songs, loop=loop, shuffle=shuffle)
             while self.is_connected:
@@ -103,7 +96,7 @@ class GuildPlayer:
                     print('playing {}'.format(song.title.encode('utf8')))
                     await self._play_song(song)
                 except:
-                    # todo: move to caller
+                    # We have to handle it here as we still need to keep playing songs
                     traceback.print_exc()
                     msg_text = "I couldn't play {}".format(song.title)
                     await song.request_channel.send(msg_text)
@@ -114,15 +107,16 @@ class GuildPlayer:
         '''
 
         # If there is a player_timeout, cancel. If its already cancelled it has no effect
-        if self.player_timeout:
-            self.player_timeout.cancel()
+        if self.disconnect_timeout:
+            self.disconnect_timeout.cancel()
 
         # Make sure the client doesn't disconnect in the middle of this by locking
         with await self.connect_lock:
             stop_event = asyncio.Event()
             loop = asyncio.get_event_loop()
             def after(error):
-                print(error)
+                if error:
+                    print(error)
                 # todo: log
                 def clear():
                     stop_event.set()
@@ -138,11 +132,11 @@ class GuildPlayer:
             await stop_event.wait()
 
         # Start the disconnect from voice channel timeout
-        self.player_timeout = asyncio.ensure_future(self._wait_timeout())
+        self.disconnect_timeout = asyncio.ensure_future(self._wait_timeout())
 
     async def _wait_timeout(self):
         '''This is a coroutine. Starts the timeout for the player to disconnect.'''
-        await asyncio.sleep(self.timeout)
+        await asyncio.sleep(self.disconnect_timeout_length)
         await self.disconnect()
         print('disconnected due to timeout')
 

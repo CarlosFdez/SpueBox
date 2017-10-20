@@ -27,12 +27,11 @@ class MusicPlayerPlugin:
 
     def player_for(self, ctx):
         'Retrieves or creates a GuildMusicPlayer based on the given context'
-        guild = ctx.message.guild
+        guild = ctx.guild
         try:
             return self.players[guild.id]
         except KeyError:
             player = audio.GuildPlayer(
-                self.bot,
                 guild,
                 volume=config.default_volume,
                 disconnect_timeout=config.connection_timeout)
@@ -46,10 +45,9 @@ class MusicPlayerPlugin:
         player.volume = int(volume)
         await ctx.send("Updated guild's volume to " + str(player.volume) + "%")
 
-    @commands.command(name='play',
-        help="Plays a song, can be a url or a tag name.\n" +
-             "Can have loop as an optional argument.")
+    @commands.command(name='play')
     async def play_cmd(self, ctx, url, *args):
+        "Plays audio from a url or tag name. Can have loop as an optional argument."
         if await self.cannot_use_voice(ctx): return
 
         args = [a.lower() for a in args]
@@ -68,10 +66,9 @@ class MusicPlayerPlugin:
             # TODO: LOG
             await ctx.send('Failed to download video: ' + str(ex))
 
-    @commands.command(name='playlist',
-        help="Adds a youtube playlist on a queue. Can be a url or a tag name.\n" +
-             "Can have loop and shuffle as optional arguments.")
+    @commands.command(name='playlist')
     async def playlist_cmd(self, ctx, url, *args):
+        "Adds a youtube playlist to a queue from a url or a tag name. Loop and shuffle as optional arguments."
         if await self.cannot_use_voice(ctx): return
 
         args = [a.lower() for a in args]

@@ -2,6 +2,8 @@ import collections
 import random
 
 class SongList:
+    "Represents a queue of songs that can be manipulated"
+
     def __init__(self):
         self.shuffle = False
         self.loop = False
@@ -13,10 +15,12 @@ class SongList:
         self.song_queue = collections.deque()
 
     def add(self, song):
+        "Adds a single song to the queue"
         self.songs.append(song)
         self.song_queue.append(song)
 
     def extend(self, songs):
+        "Adds multiple songs to the queue"
         self.songs.extend(songs)
         self.song_queue.extend(songs)
 
