@@ -3,11 +3,12 @@ import discord
 import traceback
 from .songlist import SongList
 
+import logging
+
 class GuildPlayer:
     '''A class used to play audio for a guild and manage state.
 
-    This class wraps over discord's VoiceClient, 
-    but does not require a connection to exist.
+    This class manages and wraps over discord's VoiceClient .
     '''
 
     def __init__(self, guild, *, volume = 100, inactivity_timeout=600):
@@ -58,16 +59,11 @@ class GuildPlayer:
         # If we are already connected to a channel here, move to the other channel
         if self.is_connected:
             await self.voice_client.move_to(voice_channel)
-            print("debug: moved channels")
             return
 
         # note: we lock here as doing it above could lead to deadlock (disconnect uses the lock)
         with await self.connect_lock:
-            try:
-                self.voice_client = await voice_channel.connect()
-                print("debug: connected")
-            except Exception as ex:
-                print('failed to connect to voice: ' + str(ex))
+            self.voice_client = await voice_channel.connect()         
 
     async def disconnect(self):
         self.stop()
@@ -92,6 +88,7 @@ class GuildPlayer:
                     await self._play_song(song)
                 except:
                     # We have to handle it here as we still need to keep playing songs
+                    # TODO: Implement an on_play_error handler
                     traceback.print_exc()
                     msg_text = "I couldn't play {}".format(song.title)
                     await song.request_channel.send(msg_text)
@@ -111,7 +108,7 @@ class GuildPlayer:
             loop = asyncio.get_event_loop()
             def after(error):
                 if error:
-                    print(error)
+                    logging.error(error)
                 # todo: log
                 def clear():
                     stop_event.set()

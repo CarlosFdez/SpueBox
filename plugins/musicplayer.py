@@ -8,6 +8,8 @@ import audio
 
 from core import checks
 
+import logging
+
 class MusicPlayerPlugin:
     def __init__(self, bot, tagdb):
         self.bot = bot
@@ -72,15 +74,19 @@ class MusicPlayerPlugin:
         try:
             # Try to load a tag, if it fails url doesn't change
             url = self.tagdb.try_get(ctx.author.id, url, default=url)
-            print("Playing {}".format(url))
+            logging.info("Playing {}".format(url))
 
             song = await self.loader.load_song(url, ctx.author, ctx.channel)
             player = self.player_for(ctx.guild)
             await player.connect(ctx.author.voice.channel)
             await player.play(song, loop=loop)
         except youtube_dl.utils.DownloadError as ex:
-            # TODO: LOG
-            await ctx.send('Failed to download video: ' + str(ex))
+            message = 'Failed to download video: ' + str(ex)
+            logging.error(message)
+            await ctx.send(message)
+        except Exception as ex:
+            logging.error('Error while trying to connect or play audio: ' + str(ex))
+            await ctx.send("Error while trying to connect or play audio")
 
     @commands.command(name='playlist')
     async def playlist_cmd(self, ctx, url, *args):
@@ -94,16 +100,19 @@ class MusicPlayerPlugin:
         try:
             # Try to load a tag, if it fails url doesn't change
             url = self.tagdb.try_get(ctx.author.id, url, default=url)
-            print("Playlist at {}".format(url))
-            # TODO: LOG
+            logging.info("Playlist at {}".format(url))
 
             songs = await self.loader.load_playlist(url, ctx.author, ctx.channel)
             player = self.player_for(ctx.guild)
             await player.connect(ctx.author.voice.channel)
             await player.play(*songs, loop=loop, shuffle=shuffle)
-        except youtube_dl.utils.DownloadError as ex:
-            # TODO: LOG
-            ctx.send('Failed to download video playlist: ' + str(ex))
+        except youtube_dl.utils.DownloadError as ex:            
+            message = 'Failed to download video: ' + str(ex)
+            logging.error(message)
+            await ctx.send(message)
+        except Exception as ex:
+            logging.error('Error while trying to connect or play audio: ' + str(ex))
+            await ctx.send("Error while trying to connect or play audio")
 
     @commands.command(name='shuffle')
     async def shuffle_cmd(self, ctx):
