@@ -37,14 +37,12 @@ class Loader:
     def _extract_songs(self, ydl: youtube_dl.YoutubeDL, url: str):
         info = ydl.extract_info(url, download=False)
         if not info:
-            raise DownloadError('Not data could be retrieved')
+            raise DownloadError('Data could not be retrieved')
+            
         if '_type' in info and info['_type'] == 'playlist':
             entries = info['entries']
         else:
             entries = [info]
 
-        results = []
-        for info in entries:
-            result = (info['title'], info['url'])
-            results.append(result)
+        results = [(e['title'], e['url']) for e in entries]
         return results

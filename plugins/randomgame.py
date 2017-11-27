@@ -8,10 +8,19 @@ class RandomGamePlugin:
 
     def __init__(self, bot, all_games):
         self.bot = bot
-        self.games = all_games
+        self.all_games = all_games
+        self._running = False
 
     async def on_ready(self):
-        while self.bot.is_logged_in:
-            name = random.choice(self.games)
+        # on_ready could be called multiple times, so we try to only go at it once
+        if self._running:
+            return
+
+        self._running = True
+        while not self.bot.is_closed():
+            name = random.choice(self.all_games)
             await self.bot.change_presence(game=discord.Game(name=name, type=1))
             await asyncio.sleep(60)
+
+        # todo: handle what happens if we get here and its temporary.
+        # No idea what would cause such a state, and in what order things would be called

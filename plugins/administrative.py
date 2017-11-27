@@ -2,7 +2,6 @@ import config
 import traceback
 import aiohttp
 import discord.utils
-from core import checks
 from discord.ext import commands
 
 class AdministrativePlugin:
@@ -11,30 +10,30 @@ class AdministrativePlugin:
 
     async def check_not_direct(self, ctx):
         if self.bot.user.mention not in ctx.prefix:
-            await self.bot.say('This command only works if I am directly mentioned')
+            await ctx.send('This command only works if I am directly mentioned')
             return True
         return False
 
-    @commands.check(checks.is_owner)
+    @commands.is_owner()
     @commands.command(name='link')
-    async def link_cmd(self):
+    async def link_cmd(self, ctx):
         link = discord.utils.oauth_url(config.client_id)
-        await self.bot.say(link)
+        await ctx.send(link)
 
-    @commands.check(checks.is_owner)
-    @commands.command(name='say', pass_context=True)
+    @commands.is_owner()
+    @commands.command(name='say')
     async def say_cmd(self, ctx, *, content: str):
         if await self.check_not_direct(ctx): return
 
-        await self.bot.say(content.strip())
+        await ctx.send(content.strip())
 
-    @commands.check(checks.is_owner)
-    @commands.command(name='avatar', pass_context=True)
+    @commands.is_owner()
+    @commands.command(name='avatar')
     async def avatar_cmd(self, ctx):
-        await self.bot.say('please reply with the attachment or link')
+        await ctx.send('please reply with the attachment or link')
         reply = await self.bot.wait_for_message(author=ctx.message.author)
         if not reply:
-            await self.bot.say('no reply')
+            await ctx.send('no reply')
             return
 
         if reply.attachments:
@@ -44,7 +43,7 @@ class AdministrativePlugin:
 
         res = await aiohttp.get(url)
         if res.status != 200:
-            await self.bot.say('failed to load image')
+            await ctx.send('failed to load image')
             return
 
         image_data = await res.read()

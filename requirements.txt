@@ -1,2 +1,2 @@
-discord.py[voice] == 0.16.7
+https://github.com/Rapptz/discord.py/archive/rewrite.zip
 youtube_dl >= 2017.2.24.1

@@ -8,11 +8,7 @@ import audio
 
 from core import checks
 
-def get_voice_channels(server):
-    'Returns the voice channels for the server sorted by position'
-    channels = filter(lambda c: c.type == discord.ChannelType.voice, server.channels)
-    channels = sorted(channels, key=lambda c: c.position)
-    return channels
+import logging
 
 class MusicPlayerPlugin:
     def __init__(self, bot, tagdb):
@@ -21,61 +17,80 @@ class MusicPlayerPlugin:
         self.players = {}
         self.tagdb = tagdb
 
+    # This isn't a check as checks pretend the command doesn't exist.
     async def cannot_use_voice(self, ctx):
-        author = ctx.message.author # requester
-        if not author.voice_channel:
-            await self.bot.say('you need to be in a voice channel')
+        "Checks if the context allows the use of voice"
+        author = ctx.author # requester
+        if not author.voice:
+            await ctx.send('you need to be in a voice channel')
             return True
 
         return False # we're clear
 
-    def player_for(self, ctx):
-        'Retrieves or creates a ServerMusicPlayer based on the given context'
-        server = ctx.message.server
+    # Disconnect the bot if there's no one to listen
+    async def on_voice_state_update(self, member, before, after):
+        # if there was no channel change, we don't care
+        if before.channel is after.channel:
+            return
+
+        player = self.player_for(member.guild)
+        if not player.channel or before.channel != player.channel:
+            # The player is uninvolved, so we don't care
+            return
+
+        # Disconnect if the player's channel is empty of normal users
+        channel = player.channel
+        non_bot_members = filter(lambda v: not v.bot, channel.members)
+        if not next(non_bot_members, None):
+            await player.disconnect()
+
+    def player_for(self, guild):
+        'Retrieves or creates a GuildMusicPlayer based on the given context'
         try:
-            return self.players[server.id]
+            return self.players[guild.id]
         except KeyError:
-            player = audio.ServerPlayer(
-                self.bot,
-                server,
+            player = audio.GuildPlayer(
+                guild,
                 volume=config.default_volume,
-                timeout=config.connection_timeout)
-            self.players[server.id] = player
+                inactivity_timeout=config.connection_timeout)
+            self.players[guild.id] = player
             return player
 
     @commands.check(checks.is_owner_or_admin)
-    @commands.command(name='volume', pass_context=True,
-        help="Adjusts bot volume for the server. Can only be used by server admins")
     async def volume_cmd(self, ctx, volume : int):
-        player = self.player_for(ctx)
+        "Adjusts bot volume for the guild. Can only be used by guild admins"
+        player = self.player_for(ctx.guild)
         player.volume = int(volume)
-        await self.bot.say("Updated server's volume to " + str(player.volume) + "%")
+        await ctx.send("Updated guild's volume to " + str(player.volume) + "%")
 
-    @commands.command(name='play', pass_context=True,
-        help="Plays a song, can be a url or a tag name.\n" +
-             "Can have loop as an optional argument.")
+    @commands.command(name='play')
     async def play_cmd(self, ctx, url, *args):
+        "Plays audio from a url or tag name. Can have loop as an optional argument."
         if await self.cannot_use_voice(ctx): return
 
         args = [a.lower() for a in args]
         loop = 'loop' in args
 
         try:
-            url = self.tagdb.try_get(ctx.message.author.id, url, default=url)
-            print("Playing {}".format(url))
+            # Try to load a tag, if it fails url doesn't change
+            url = self.tagdb.try_get(ctx.author.id, url, default=url)
+            logging.info("Playing {}".format(url))
 
-            song = await self.loader.load_song(url, ctx.message.author, ctx.message.channel)
-            player = self.player_for(ctx)
-            await player.connect(ctx.message.author.voice_channel)
+            song = await self.loader.load_song(url, ctx.author, ctx.channel)
+            player = self.player_for(ctx.guild)
+            await player.connect(ctx.author.voice.channel)
             await player.play(song, loop=loop)
         except youtube_dl.utils.DownloadError as ex:
-            msg_text = 'Failed to download video: ' + str(ex)
-            await self.bot.send_message(ctx.message.channel, msg_text) # there is an unknown bug with say() in catch
+            message = 'Failed to download video: ' + str(ex)
+            logging.error(message)
+            await ctx.send(message)
+        except Exception as ex:
+            logging.error('Error while trying to connect or play audio: ' + str(ex))
+            await ctx.send("Error while trying to connect or play audio")
 
-    @commands.command(name='playlist', pass_context=True,
-        help="Adds a youtube playlist on a queue. Can be a url or a tag name.\n" +
-             "Can have loop and shuffle as optional arguments.")
+    @commands.command(name='playlist')
     async def playlist_cmd(self, ctx, url, *args):
+        "Adds a youtube playlist to a queue from a url or a tag name. Loop and shuffle as optional arguments."
         if await self.cannot_use_voice(ctx): return
 
         args = [a.lower() for a in args]
@@ -83,31 +98,36 @@ class MusicPlayerPlugin:
         shuffle = 'shuffle' in args
 
         try:
-            url = self.tagdb.try_get(ctx.message.author.id, url, default=url)
-            print("Playlist at {}".format(url))
+            # Try to load a tag, if it fails url doesn't change
+            url = self.tagdb.try_get(ctx.author.id, url, default=url)
+            logging.info("Playlist at {}".format(url))
 
-            songs = await self.loader.load_playlist(url, ctx.message.author, ctx.message.channel)
-            player = self.player_for(ctx)
-            await player.connect(ctx.message.author.voice_channel)
+            songs = await self.loader.load_playlist(url, ctx.author, ctx.channel)
+            player = self.player_for(ctx.guild)
+            await player.connect(ctx.author.voice.channel)
             await player.play(*songs, loop=loop, shuffle=shuffle)
-        except youtube_dl.utils.DownloadError as ex:
-            msg_text = 'Failed to download video playlist: ' + str(ex)
-            await self.bot.send_message(ctx.message.channel, msg_text) # there is an unknown bug with say() in catch
+        except youtube_dl.utils.DownloadError as ex:            
+            message = 'Failed to download video: ' + str(ex)
+            logging.error(message)
+            await ctx.send(message)
+        except Exception as ex:
+            logging.error('Error while trying to connect or play audio: ' + str(ex))
+            await ctx.send("Error while trying to connect or play audio")
 
-    @commands.command(name='shuffle', pass_context=True,
-        help="Shuffles the current queue")
+    @commands.command(name='shuffle')
     async def shuffle_cmd(self, ctx):
+        "Shuffles the current queue"
         if await self.cannot_use_voice(ctx): return
-        self.player_for(ctx).shuffle()
+        self.player_for(ctx.guild).shuffle()
 
-    @commands.command(name='skip', pass_context=True,
-        help="Skips to the next song in the queue")
+    @commands.command(name='skip')
     async def skip_cmd(self, ctx):
+        "Skips to the next song in the queue"
         if await self.cannot_use_voice(ctx): return
-        self.player_for(ctx).skip()
+        self.player_for(ctx.guild).skip()
 
-    @commands.command(name='stop', pass_context=True,
-        help="Stops all songs in the queue and flushes it")
+    @commands.command(name='stop')
     async def stop_cmd(self, ctx):
+        "Stops all songs in the queue and flushes it"
         if await self.cannot_use_voice(ctx): return
-        self.player_for(ctx).stop()
+        self.player_for(ctx.guild).stop()
