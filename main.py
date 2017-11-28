@@ -16,6 +16,9 @@ from logging.handlers import TimedRotatingFileHandler
 
 def setup_logging():
     "Set up logging (and ensure directory)"
+
+    # Set up log directory first
+    os.makedirs('logs', exist_ok=True)
     
     normal_formatter = logging.Formatter('%(name)s %(message)s')
     full_formatter = logging.Formatter('%(asctime)s %(levelname)s:%(name)s %(message)s')
@@ -34,7 +37,6 @@ def setup_logging():
     error_handler.setFormatter(normal_formatter)
     error_handler.setLevel(logging.WARNING)
 
-    os.makedirs('logs', exist_ok=True)
     logging.basicConfig(
         level=config.loglevel,
         handlers=[
