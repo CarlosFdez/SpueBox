@@ -2,9 +2,6 @@
 client_id = 'client id goes here'
 credentials = ('token_goes_here')
 
-# Override to control special bot commands
-owner_id = None
-
 default_volume = 30
 connection_timeout = 7200 # 2 hours
 
