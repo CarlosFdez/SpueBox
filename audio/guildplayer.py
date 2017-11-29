@@ -114,8 +114,11 @@ class GuildPlayer:
                     stop_event.set()
                 loop.call_soon_threadsafe(clear)
 
-            source = discord.FFmpegPCMAudio(song.source, 
-                before_options="-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 2")
+            # NOTE: These are experimental flags, but they dont work on my linux server.
+            # Going to keep them here to do more research on them later
+            ##    before_options="-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 2")
+
+            source = discord.FFmpegPCMAudio(song.source)
             source = discord.PCMVolumeTransformer(source)
             source.volume = self.volume / 100
 
