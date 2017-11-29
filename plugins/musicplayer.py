@@ -6,7 +6,7 @@ import youtube_dl
 from discord.ext import commands
 import audio
 
-from core import checks
+from core import checks, ex_str
 
 import logging
 
@@ -80,12 +80,17 @@ class MusicPlayerPlugin:
             player = self.player_for(ctx.guild)
             await player.connect(ctx.author.voice.channel)
             await player.play(song, loop=loop)
+
         except youtube_dl.utils.DownloadError as ex:
-            message = 'Failed to download video: ' + str(ex)
+            message = 'Failed to download video: ' + ex_str(ex)
             logging.error(message)
+
             await ctx.send(message)
+
         except Exception as ex:
-            logging.error('Error while trying to connect or play audio: ' + str(ex))
+            logging.error('Error while trying to connect or play audio')
+            logging.exception(ex)
+
             await ctx.send("Error while trying to connect or play audio")
 
     @commands.command(name='playlist')
@@ -106,12 +111,17 @@ class MusicPlayerPlugin:
             player = self.player_for(ctx.guild)
             await player.connect(ctx.author.voice.channel)
             await player.play(*songs, loop=loop, shuffle=shuffle)
+
         except youtube_dl.utils.DownloadError as ex:            
-            message = 'Failed to download video: ' + str(ex)
+            message = 'Failed to download video: ' + ex_str(ex)
             logging.error(message)
+
             await ctx.send(message)
+
         except Exception as ex:
-            logging.error('Error while trying to connect or play audio: ' + str(ex))
+            logging.error('Error while trying to connect or play audio')
+            logging.exception(ex)
+
             await ctx.send("Error while trying to connect or play audio")
 
     @commands.command(name='shuffle')
