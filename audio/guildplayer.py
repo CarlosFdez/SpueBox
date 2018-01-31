@@ -45,6 +45,7 @@ class GuildPlayer:
     def channel(self):
         if self.voice_client:
             return self.voice_client.channel
+        return None
 
     async def connect(self, voice_channel : discord.VoiceChannel):
         '''This is a coroutine. Connect to the voice channel,

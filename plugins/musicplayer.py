@@ -36,19 +36,22 @@ class MusicPlayerPlugin:
 
     # Disconnect the bot if there's no one to listen
     async def on_voice_state_update(self, member, before, after):
-        # if there was no channel change, we don't care
+        "Triggered when a user leaves or joins a voice channel"
+
+        # if there was no channel change, this is not a leave update
         if before.channel is after.channel:
             return
 
         player = self.player_for(member.guild)
-        if not player.channel or before.channel != player.channel:
-            # The player is uninvolved, so we don't care
+
+        # If the channel is uninvolved or disconnected, we skip
+        if not player.is_connected or before.channel != player.channel:
             return
 
-        # Disconnect if the player's channel is empty of normal users
-        channel = player.channel
-        non_bot_members = filter(lambda v: not v.bot, channel.members)
-        if not next(non_bot_members, None):
+        # Disconnect if the player's channel is empty of regular users
+        all_members = player.channel.members
+        regular_members = filter(lambda v: not v.bot, all_members)
+        if not next(regular_members, None):
             await player.disconnect()
 
     def player_for(self, guild):
