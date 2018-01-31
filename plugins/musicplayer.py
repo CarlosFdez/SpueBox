@@ -9,6 +9,23 @@ import audio
 from core import checks, ex_str
 
 import logging
+import functools
+
+def voice_only(fn):
+    """A decorator that modifies a cog function command to require a sender to be in a voice channel.
+    On failure, it'll notify the author with an error message.
+    Note: discord.py checks would cause it to not show on the help function. So we do this instead.
+    """
+    @functools.wraps(fn)
+    async def modified_fn(self, ctx, *args, **kwargs):
+        author = ctx.author # requester
+        if not author.voice:
+            await ctx.send('you need to be in a voice channel')
+            return
+
+        await fn(self, ctx, *args, **kwargs)
+    return modified_fn
+
 
 class MusicPlayerPlugin:
     def __init__(self, bot, tagdb):
@@ -16,16 +33,6 @@ class MusicPlayerPlugin:
         self.loader = audio.Loader()
         self.players = {}
         self.tagdb = tagdb
-
-    # This isn't a check as checks pretend the command doesn't exist.
-    async def cannot_use_voice(self, ctx):
-        "Checks if the context allows the use of voice"
-        author = ctx.author # requester
-        if not author.voice:
-            await ctx.send('you need to be in a voice channel')
-            return True
-
-        return False # we're clear
 
     # Disconnect the bot if there's no one to listen
     async def on_voice_state_update(self, member, before, after):
@@ -64,9 +71,9 @@ class MusicPlayerPlugin:
         await ctx.send("Updated guild's volume to " + str(player.volume) + "%")
 
     @commands.command(name='play')
+    @voice_only
     async def play_cmd(self, ctx, url, *args):
         "Plays audio from a url or tag name. Can have loop as an optional argument."
-        if await self.cannot_use_voice(ctx): return
 
         args = [a.lower() for a in args]
         loop = 'loop' in args
@@ -94,10 +101,9 @@ class MusicPlayerPlugin:
             await ctx.send("Error while trying to connect or play audio")
 
     @commands.command(name='playlist')
+    @voice_only
     async def playlist_cmd(self, ctx, url, *args):
         "Adds a youtube playlist to a queue from a url or a tag name. Loop and shuffle as optional arguments."
-        if await self.cannot_use_voice(ctx): return
-
         args = [a.lower() for a in args]
         loop = 'loop' in args
         shuffle = 'shuffle' in args
@@ -125,19 +131,19 @@ class MusicPlayerPlugin:
             await ctx.send("Error while trying to connect or play audio")
 
     @commands.command(name='shuffle')
+    @voice_only
     async def shuffle_cmd(self, ctx):
         "Shuffles the current queue"
-        if await self.cannot_use_voice(ctx): return
         self.player_for(ctx.guild).shuffle()
 
     @commands.command(name='skip')
+    @voice_only
     async def skip_cmd(self, ctx):
         "Skips to the next song in the queue"
-        if await self.cannot_use_voice(ctx): return
         self.player_for(ctx.guild).skip()
 
     @commands.command(name='stop')
+    @voice_only
     async def stop_cmd(self, ctx):
         "Stops all songs in the queue and flushes it"
-        if await self.cannot_use_voice(ctx): return
         self.player_for(ctx.guild).stop()
