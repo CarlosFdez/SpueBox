@@ -4,7 +4,10 @@ import traceback
 import asyncio
 import youtube_dl
 from discord.ext import commands
-import audio
+
+from .guildplayer import GuildPlayer
+from .loader import Loader
+from .song import Song
 
 from core import checks, ex_str
 
@@ -30,7 +33,7 @@ def voice_only(fn):
 class MusicPlayerPlugin:
     def __init__(self, bot, tagdb):
         self.bot = bot
-        self.loader = audio.Loader()
+        self.loader = Loader()
         self.players = {}
         self.tagdb = tagdb
 
@@ -55,11 +58,11 @@ class MusicPlayerPlugin:
             await player.disconnect()
 
     def player_for(self, guild):
-        'Retrieves or creates a GuildMusicPlayer based on the given context'
+        'Retrieves or creates a GuildPlayer based on the given context'
         try:
             return self.players[guild.id]
         except KeyError:
-            player = audio.GuildPlayer(
+            player = GuildPlayer(
                 guild,
                 volume=config.default_volume,
                 inactivity_timeout=config.connection_timeout)
@@ -82,14 +85,15 @@ class MusicPlayerPlugin:
         loop = 'loop' in args
 
         try:
-            # Try to load a tag, if it fails url doesn't change
+            # Try to load a tag, if it fails it passes through
             url = self.tagdb.try_get(ctx.author.id, url, default=url)
             logging.info("Playing {}".format(url))
 
-            song = await self.loader.load_song(url, ctx.author, ctx.channel)
+            song = await self.loader.load_song(url)
             player = self.player_for(ctx.guild)
             await player.connect(ctx.author.voice.channel)
-            await player.play(song, loop=loop)
+            
+            player.request_song(song, ctx.author, ctx.channel, loop=loop)
 
         except youtube_dl.utils.DownloadError as ex:
             message = 'Failed to download video: ' + ex_str(ex)
@@ -116,10 +120,11 @@ class MusicPlayerPlugin:
             url = self.tagdb.try_get(ctx.author.id, url, default=url)
             logging.info("Playlist at {}".format(url))
 
-            songs = await self.loader.load_playlist(url, ctx.author, ctx.channel)
+            songs = await self.loader.load_playlist(url)
             player = self.player_for(ctx.guild)
-            await player.connect(ctx.author.voice.channel)
-            await player.play(*songs, loop=loop, shuffle=shuffle)
+            # todo: temporarily disabled until modes are implemented
+            # await player.connect(ctx.author.voice.channel)
+            #await player.play(*requests, loop=loop, shuffle=shuffle)
 
         except youtube_dl.utils.DownloadError as ex:            
             message = 'Failed to download video: ' + ex_str(ex)

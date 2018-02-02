@@ -1,0 +1,1 @@
+from .musicplayer import MusicPlayerPlugin

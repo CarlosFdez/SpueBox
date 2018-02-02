@@ -2,19 +2,20 @@ import asyncio
 import youtube_dl
 from youtube_dl.utils import DownloadError
 import config
-from audio.song import Song
+
+from .song import Song
 
 class Loader:
-    '''Retrieves song data from youtube'''
+    '''Retrieves song data via youtube dl'''
 
-    async def load_song(self, lookup, request_user, channel):
+    async def load_song(self, lookup : str):
         results = await self._load_from_url(lookup, noplaylist=True)
         title, source = results[0]
-        return Song(title, source, request_user, channel)
+        return Song(title, lookup, source)
 
-    async def load_playlist(self, lookup, request_user, channel):
+    async def load_playlist(self, lookup : str):
         results = await self._load_from_url(lookup)
-        return [Song(title, source, request_user, channel) for (title, source) in results]
+        return [Song(title, lookup, source) for (title, source) in results]
 
     async def _load_from_url(self, url: str, *, noplaylist=False):
         '''Retrieves one or more songs for a url. If its a playlist, returns multiple
@@ -38,6 +39,8 @@ class Loader:
         info = ydl.extract_info(url, download=False)
         if not info:
             raise DownloadError('Data could not be retrieved')
+
+        print(info)
             
         if '_type' in info and info['_type'] == 'playlist':
             entries = info['entries']
