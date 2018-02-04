@@ -76,10 +76,17 @@ class MusicPlayerPlugin:
         player.volume = int(volume)
         await ctx.send("Updated guild's volume to " + str(player.volume) + "%")
 
-    @commands.command(name='play')
+    @commands.command(name='play', aliases=['p'])
     @voice_only
     async def play_cmd(self, ctx, url, *args):
-        "Plays audio from a url or tag name. Can have loop as an optional argument."
+        """Plays audio from a url or tag. Use "help play" for more info.
+        
+        Requests audio from a url or tag name to be played.
+        Depending on the play mode, this will either replace the current track,
+        or add it to a list.
+
+        Add "loop" to loop the requested audio. Use "next" or "stop" to cancel it.
+        """
 
         args = [a.lower() for a in args]
         loop = 'loop' in args
@@ -144,9 +151,9 @@ class MusicPlayerPlugin:
         "Shuffles the current queue"
         self.player_for(ctx.guild).shuffle()
 
-    @commands.command(name='skip')
+    @commands.command(name='next', aliases=['skip'])
     @voice_only
-    async def skip_cmd(self, ctx):
+    async def next_cmd(self, ctx):
         "Skips to the next song in the queue"
         self.player_for(ctx.guild).skip()
 

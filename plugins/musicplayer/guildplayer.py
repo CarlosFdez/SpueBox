@@ -74,7 +74,7 @@ class GuildPlayer:
     @volume.setter
     def volume(self, value):
         '''Sets the guild's default volume level, and any currently playing music'''
-        new_value = max(0, min(150, value))
+        value = max(0, min(150, int(value)))
         self._volume = value
         if self.voice_client:
             self.voice_client.source.volume = value / 100
