@@ -101,6 +101,9 @@ class GuildPlayer:
     async def connect(self, voice_channel : discord.VoiceChannel):
         '''This is a coroutine. Connect to the voice channel,
         or move to it if already connected to another one.
+        Does nothing if already connected to the channel.
+
+        If the player was disconnected and connects, the mode will switch to SINGLE.
         '''
         # If we are already connected to the voice channel, do nothing
         if self.is_connected and self.voice_client.channel is voice_channel:
@@ -109,13 +112,14 @@ class GuildPlayer:
         # If we're moving or connecting, we have to stop
         self.stop()
 
-        # If we are already connected to a channel here, move to the other channel
         if self.is_connected:
+            # If we are already connected to a channel here, move to the other channel
             await self.voice_client.move_to(voice_channel)
-            return
-
-        with await self.connect_lock:
-            self.voice_client = await voice_channel.connect()         
+        else:
+            # Connect; and switch to the default mode (SINGLE)
+            with await self.connect_lock:
+                self.mode = GuildPlayerMode.SINGLE
+                self.voice_client = await voice_channel.connect()         
 
     async def disconnect(self):
         self.stop()
@@ -141,10 +145,13 @@ class GuildPlayer:
             self.skip()
         else:
             self.requests.add(request)
-        
-        asyncio.ensure_future(self.start_playing())
 
-    async def start_playing(self):
+    def play(self):
+        """Tells the GuildPlayer to begin playing. 
+        Not a coroutine, but it adds to the asyncio event loop"""
+        asyncio.ensure_future(self._start_playing())
+
+    async def _start_playing(self):
         if self.is_playing:
             return
 

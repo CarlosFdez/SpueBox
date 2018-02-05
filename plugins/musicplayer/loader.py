@@ -39,8 +39,6 @@ class Loader:
         info = ydl.extract_info(url, download=False)
         if not info:
             raise DownloadError('Data could not be retrieved')
-
-        print(info)
             
         if '_type' in info and info['_type'] == 'playlist':
             entries = info['entries']

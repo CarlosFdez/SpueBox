@@ -5,7 +5,7 @@ import asyncio
 import youtube_dl
 from discord.ext import commands
 
-from .guildplayer import GuildPlayer
+from .guildplayer import GuildPlayer, GuildPlayerMode
 from .loader import Loader
 from .song import Song
 
@@ -101,6 +101,7 @@ class MusicPlayerPlugin:
             await player.connect(ctx.author.voice.channel)
             
             player.request_song(song, ctx.author, ctx.channel, loop=loop)
+            player.play()
 
         except youtube_dl.utils.DownloadError as ex:
             message = 'Failed to download video: ' + ex_str(ex)
@@ -119,19 +120,22 @@ class MusicPlayerPlugin:
     async def playlist_cmd(self, ctx, url, *args):
         "Adds a youtube playlist to a queue from a url or a tag name. Loop and shuffle as optional arguments."
         args = [a.lower() for a in args]
-        loop = 'loop' in args
         shuffle = 'shuffle' in args
 
         try:
-            # Try to load a tag, if it fails url doesn't change
+            # Try to load a tag, if it fails it passes through
             url = self.tagdb.try_get(ctx.author.id, url, default=url)
             logging.info("Playlist at {}".format(url))
 
             songs = await self.loader.load_playlist(url)
             player = self.player_for(ctx.guild)
-            # todo: temporarily disabled until modes are implemented
-            # await player.connect(ctx.author.voice.channel)
-            #await player.play(*requests, loop=loop, shuffle=shuffle)
+            
+            await player.connect(ctx.author.voice.channel)
+            player.mode = GuildPlayerMode.LINEAR
+
+            for song in songs:
+                player.request_song(song, ctx.author, ctx.channel)
+            player.play()
 
         except youtube_dl.utils.DownloadError as ex:            
             message = 'Failed to download video: ' + ex_str(ex)
