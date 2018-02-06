@@ -41,7 +41,8 @@ class GuildPlayerMode(Enum):
 class GuildPlayer:
     '''A class used to play audio for a guild and manage state.
 
-    This class manages and wraps over discord's VoiceClient .
+    This class manages and wraps over discord's VoiceClient.
+    Allows iteration over loaded requests
     '''
 
     def __init__(self, guild, *, volume = 100, inactivity_timeout=600):
@@ -81,11 +82,14 @@ class GuildPlayer:
 
     @property
     def mode(self):
+        "Returns the current GuildPlayerMode setting"
         return self._mode
 
     @mode.setter
     def mode(self, newmode):
+        "Sets the current GuildPlayerMode setting"
         self._mode = newmode
+
         # todo: handle the process of switching modes
 
     @property
@@ -94,6 +98,7 @@ class GuildPlayer:
 
     @property
     def channel(self):
+        "Returns the currently connected voice channel if connected, otherwise returns None"
         if self.voice_client:
             return self.voice_client.channel
         return None
@@ -150,6 +155,29 @@ class GuildPlayer:
         """Tells the GuildPlayer to begin playing. 
         Not a coroutine, but it adds to the asyncio event loop"""
         asyncio.ensure_future(self._start_playing())
+
+    def skip(self):
+        "Tells the player to stop playing the current song and play the next"
+        self.skip_signal.set() # prevents looping
+        if self.voice_client:
+            self.voice_client.stop()
+
+    def stop(self):
+        "Tells the player to stop playing entirely. This does not clear the list"
+        self.stop_signal.set()
+        if self.voice_client:
+            self.voice_client.stop()
+
+    def clear(self):
+        "Clears the request list. Stops playback"
+        self.stop()
+        self.requests.clear()
+
+    def __len__(self):
+        return len(self.requests)
+
+    def __iter__(self):
+        return self.requests.__iter__()
 
     async def _start_playing(self):
         if self.is_playing:
@@ -234,15 +262,3 @@ class GuildPlayer:
         await asyncio.sleep(length)
         await self.disconnect()
         print('disconnected due to timeout')
-
-    def skip(self):
-        "Tells the player to stop playing the current song and play the next"
-        self.skip_signal.set() # prevents looping
-        if self.voice_client:
-            self.voice_client.stop()
-
-    def stop(self):
-        "Tells the player to stop playing entirely. This does not clear the list"
-        self.stop_signal.set()
-        if self.voice_client:
-            self.voice_client.stop()

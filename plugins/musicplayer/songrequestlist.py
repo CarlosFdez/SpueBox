@@ -43,6 +43,12 @@ class SongRequestList:
         self.song_queue.clear()
         self.song_queue.extend(shuffled_items)
 
+    def __len__(self):
+        return len(self.songs)
+
+    def __iter__(self):
+        return self.songs.__iter__()
+
     def next(self):
         '''Returns the next song, or None if there are no more.
 

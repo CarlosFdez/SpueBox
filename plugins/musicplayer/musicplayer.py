@@ -78,10 +78,12 @@ class MusicPlayerPlugin:
 
     @commands.command(name='play', aliases=['p'])
     @voice_only
-    async def play_cmd(self, ctx, url, *args):
-        """Plays audio from a url or tag. Use "help play" for more info.
+    async def play_cmd(self, ctx, url : str=None, *args):
+        """Plays audio. Use "help play" for more info.
         
-        Requests audio from a url or tag name to be played.
+        If a url is given, requests audio from a url or tag name to be played.
+        Otherwise, it will resume the current playlist if there is any.
+
         Depending on the play mode, this will either replace the current track,
         or add it to a list.
 
@@ -92,15 +94,21 @@ class MusicPlayerPlugin:
         loop = 'loop' in args
 
         try:
-            # Try to load a tag, if it fails it passes through
-            url = self.tagdb.try_get(ctx.author.id, url, default=url)
-            logging.info("Playing {}".format(url))
-
-            song = await self.loader.load_song(url)
-            player = self.player_for(ctx.guild)
-            await player.connect(ctx.author.voice.channel)
             
-            player.request_song(song, ctx.author, ctx.channel, loop=loop)
+            player = self.player_for(ctx.guild)
+
+            if url:
+                # Try to load a tag, if it fails it passes through
+                url = self.tagdb.try_get(ctx.author.id, url, default=url)
+                logging.info("Playing {}".format(url))
+
+                song = await self.loader.load_song(url)
+                player.request_song(song, ctx.author, ctx.channel, loop=loop)                
+            elif not len(player):
+                await ctx.send("There is nothing to play.")
+                return
+
+            await player.connect(ctx.author.voice.channel)
             player.play()
 
         except youtube_dl.utils.DownloadError as ex:
@@ -166,3 +174,22 @@ class MusicPlayerPlugin:
     async def stop_cmd(self, ctx):
         "Stops all songs in the queue and flushes it"
         self.player_for(ctx.guild).stop()
+
+    @commands.command(name='list')
+    async def list_cmd(self, ctx):
+        "Lists all loaded tracks"
+        player = self.player_for(ctx.guild)
+        count = len(player)
+        if not count:
+            await ctx.send('The playlist is empty')
+            return
+
+        message = f'{count} items are in the list.\n'
+        if count > 20:
+            message += 'These are the first 10.\n'
+
+        titles = [req.title for req in player]
+        titles = titles[0:10]
+        message += '```{}```'.format('\n'.join(titles))
+
+        await ctx.send(message)
