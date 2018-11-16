@@ -23,16 +23,15 @@ FFMpeg needs to be available in your system path. In Windows I recommend finding
 
 Opus also needs to be available in your path. In Windows the [discord.py](https://github.com/Rapptz/discord.py) library I'm using already comes with opus included, but in Linux you have to install them. `sudo apt install libopus0` should do the job.
 
+- Make sure FFMpeg/Opus/pipenv are installed and ready to use
 - Clone/download the project, copy `config.py.example` to `config.py` and configure it
 - Open a terminal in the directory where you cloned/downloaded the repo
-- *Optional* - set up and run a virtual environment
-- `pip install -r requirements.txt`
-- `python main.py`
+- `pyenv shell 3.6.3` # if applicable
+- `pipenv install`
+- `pipenv run python main.py`
 
-
-
-### Python and Virtual env setup on Ubuntu
-These notes are mostly for myself, but to run on a linux machine you can do the following. Python 3 may already be on your system as `python3`, but I use pyenv.
+### Python setup on Ubuntu
+These notes are mostly for myself, but to run on a linux machine you can do the following. Python 3 may already be on your system as `python3`, but I use pyenv and pipenv.
 
 Some info is available in this askubuntu answer [here](https://askubuntu.com/questions/865554/how-do-i-install-python-3-6-using-apt-get).
 
@@ -51,23 +50,10 @@ Run the following command:
 
 	curl -L https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer | bash
 
-Then add the lines it tells you to add to ~/.bash_profile. Afterwards restart and run `pyenv install 3.6.3` 
+Then add the lines it tells you to add to ~/.bash_profile. Afterwards restart and run `pyenv install 3.6.7` 
 
 If you use screen, follow the instructions [here](https://stackoverflow.com/a/20421710) as well. Specifically, add `shell -$SHELL` to `~/.screenrc`.
 
-#### Setup the actual virtualenv
-Pyenv virtual environments are managed by pyenv instead of being in any specific directory. The following creates one for the bot
-
-	pyenv virtualenv 3.6.3 spuebox
-	
-and the following activates/deactivates it
-
-	pyenv activate spuebox
-	pyenv deactivate spuebox
-	
-and the following deletes it if you just want a clean start
-	
-	pyenv uninstall spuebox
-
-Afterwards just follow the normal setup instructions. I use `screen` to run it in the background, but I may run it in some sort of manager like pm2 in the future.
+#### Setup PipEnv
+Pipenv virtual environments are handled per directory. After using `pyenv shell 3.6.7`, use `pip install pipenv` to install pipenv. Afterwards follow the normal setup instructions, like using `pipenv install` to setup dependencies. I use `screen` to run it in the background, but I may run it in some sort of manager like pm2 in the future.
 	
