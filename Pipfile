@@ -10,6 +10,7 @@ name = "pypi"
 youtube-dl = "*"
 "72eb2aa" = {file = "https://github.com/Rapptz/discord.py/archive/rewrite.zip"}
 websockets = "*"
+pynacl = "*"
 
 
 [dev-packages]
