@@ -18,10 +18,10 @@ class RandomGamePlugin(commands.Cog):
             return
 
         self._running = True
-        while not self.bot.is_closed():
-            name = random.choice(self.all_games)
-            await self.bot.change_presence(activity=discord.Game(name=name, type=1))
-            await asyncio.sleep(60)
-
-        # todo: handle what happens if we get here and its temporary.
-        # No idea what would cause such a state, and in what order things would be called
+        try:
+            while not self.bot.is_closed():
+                name = random.choice(self.all_games)
+                await self.bot.change_presence(activity=discord.Game(name=name, type=1))
+                await asyncio.sleep(60)
+        finally:
+            self._running = False
