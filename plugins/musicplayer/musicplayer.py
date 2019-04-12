@@ -38,6 +38,7 @@ class MusicPlayerPlugin(commands.Cog):
         self.tagdb = tagdb
 
     # Disconnect the bot if there's no one to listen
+    @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         "Triggered when a user leaves or joins a voice channel"
 
