@@ -3,7 +3,7 @@ import random
 import asyncio
 from discord.ext import commands
 
-class RandomGamePlugin:
+class RandomGamePlugin(commands.Cog):
     'A simple plugin that will cycle based on a preset list of games'
 
     def __init__(self, bot, all_games):
@@ -11,6 +11,7 @@ class RandomGamePlugin:
         self.all_games = all_games
         self._running = False
 
+    @commands.Cog.listener()
     async def on_ready(self):
         # on_ready could be called multiple times, so we try to only go at it once
         if self._running:

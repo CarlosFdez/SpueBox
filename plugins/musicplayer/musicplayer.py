@@ -30,7 +30,7 @@ def voice_only(fn):
     return modified_fn
 
 
-class MusicPlayerPlugin:
+class MusicPlayerPlugin(commands.Cog):
     def __init__(self, bot, tagdb):
         self.bot = bot
         self.loader = Loader()

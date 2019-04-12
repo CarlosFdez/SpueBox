@@ -4,7 +4,7 @@ import aiohttp
 import discord.utils
 from discord.ext import commands
 
-class AdministrativePlugin:
+class AdministrativePlugin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 

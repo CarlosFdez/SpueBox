@@ -3,7 +3,7 @@ import traceback
 from discord.ext import commands
 from core import InvalidTagException
 
-class TagPlugin:
+class TagPlugin(commands.Cog):
     def __init__(self, bot, tagdb):
         self.bot = bot
         self.tagdb = tagdb
