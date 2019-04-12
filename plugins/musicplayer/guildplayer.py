@@ -195,11 +195,12 @@ class GuildPlayer:
                 print('playing {}'.format(song.title.encode('utf8')))
 
                 # notify the request channel that the song is playing
+                extra = " | Loop" if song.loop else ""
                 playing = discord.Embed()
                 playing.title = f'Now playing {song.title}'
                 playing.description = f"Requested by {song.request_user.name}"
                 playing.url = song.url
-                playing.set_footer(text=f"Mode: {str(self.mode)} | Volume: {self.volume}")
+                playing.set_footer(text=f"Mode: {str(self.mode)} | Volume: {self.volume}{extra}")
                 await song.request_channel.send(embed=playing)
 
                 if song.loop:
